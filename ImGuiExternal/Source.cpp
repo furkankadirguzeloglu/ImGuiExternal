@@ -36,6 +36,13 @@ namespace DirectX9Interface {
 	MSG Message = { NULL };
 }
 
+void InputHandler() {
+	for (int i = 0; i < 5; i++) ImGui::GetIO().MouseDown[i] = false;
+	int button = -1;
+	if (GetAsyncKeyState(VK_LBUTTON)) button = 0;
+	if (button != -1) ImGui::GetIO().MouseDown[button] = true;
+}
+
 void Draw() {
 	char FpsInfo[64];
 	sprintf(FpsInfo, "Overlay FPS: %0.f", ImGui::GetIO().Framerate);
@@ -50,15 +57,12 @@ void Render() {
 	ImGui::NewFrame();
 	Draw();
 	ImGui::GetIO().MouseDrawCursor = ShowMenu;
+	InputHandler();
 
 	if (ShowMenu == true) {
 		ImGui::ShowDemoWindow();
 	}
 	ImGui::EndFrame();
-
-	DirectX9Interface::pDevice->SetRenderState(D3DRS_ZENABLE, false);
-	DirectX9Interface::pDevice->SetRenderState(D3DRS_ALPHABLENDENABLE, false);
-	DirectX9Interface::pDevice->SetRenderState(D3DRS_SCISSORTESTENABLE, false);
 
 	DirectX9Interface::pDevice->Clear(0, NULL, D3DCLEAR_TARGET, D3DCOLOR_ARGB(0, 0, 0, 0), 1.0f, 0);
 	if (DirectX9Interface::pDevice->BeginScene() >= 0) {
@@ -102,21 +106,6 @@ void MainLoop() {
 		TempRect.top = TempPoint.y;
 		ImGuiIO& io = ImGui::GetIO();
 		io.ImeWindowHandle = Process::Hwnd;
-
-		POINT TempPoint2;
-		GetCursorPos(&TempPoint2);
-		io.MousePos.x = TempPoint2.x - TempPoint.x;
-		io.MousePos.y = TempPoint2.y - TempPoint.y;
-
-		if (GetAsyncKeyState(0x1)) {
-			io.MouseDown[0] = true;
-			io.MouseClicked[0] = true;
-			io.MouseClickedPos[0].x = io.MousePos.x;
-			io.MouseClickedPos[0].x = io.MousePos.y;
-		}
-		else {
-			io.MouseDown[0] = false;
-		}
 
 		if (TempRect.left != OldRect.left || TempRect.right != OldRect.right || TempRect.top != OldRect.top || TempRect.bottom != OldRect.bottom) {
 			OldRect = TempRect;
