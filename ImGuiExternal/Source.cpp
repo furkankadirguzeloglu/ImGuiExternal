@@ -60,7 +60,15 @@ void Render() {
 	InputHandler();
 
 	if (ShowMenu == true) {
+		InputHandler();
 		ImGui::ShowDemoWindow();
+		SetWindowLong(OverlayWindow::Hwnd, GWL_EXSTYLE, WS_EX_TOOLWINDOW);
+		UpdateWindow(OverlayWindow::Hwnd);
+		SetFocus(OverlayWindow::Hwnd);
+	}
+	else {
+		SetWindowLong(OverlayWindow::Hwnd, GWL_EXSTYLE, WS_EX_LAYERED | WS_EX_TRANSPARENT | WS_EX_TOOLWINDOW);
+		UpdateWindow(OverlayWindow::Hwnd);
 	}
 	ImGui::EndFrame();
 
@@ -221,7 +229,7 @@ void SetupWindow() {
 
 	OverlayWindow::Hwnd = CreateWindowEx(NULL, OverlayWindow::Name, OverlayWindow::Name, WS_POPUP | WS_VISIBLE, Process::WindowLeft, Process::WindowTop, Process::WindowWidth, Process::WindowHeight, NULL, NULL, 0, NULL);
 	DwmExtendFrameIntoClientArea(OverlayWindow::Hwnd, &DirectX9Interface::Margin);
-	SetWindowLong(OverlayWindow::Hwnd, GWL_EXSTYLE, WS_EX_TRANSPARENT | WS_EX_TOOLWINDOW);
+	SetWindowLong(OverlayWindow::Hwnd, GWL_EXSTYLE, WS_EX_LAYERED | WS_EX_TRANSPARENT | WS_EX_TOOLWINDOW);
 	ShowWindow(OverlayWindow::Hwnd, SW_SHOW);
 	UpdateWindow(OverlayWindow::Hwnd);
 }
