@@ -57,7 +57,6 @@ void Render() {
 	ImGui::NewFrame();
 	Draw();
 	ImGui::GetIO().MouseDrawCursor = ShowMenu;
-	InputHandler();
 
 	if (ShowMenu == true) {
 		InputHandler();
