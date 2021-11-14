@@ -176,10 +176,8 @@ bool DirectXInit() {
 		return false;
 	}
 
+	IMGUI_CHECKVERSION();
 	ImGui::CreateContext();
-	ImGuiIO& io = ImGui::GetIO(); (void)io;
-	ImGui::GetIO().WantCaptureMouse || ImGui::GetIO().WantTextInput || ImGui::GetIO().WantCaptureKeyboard;
-	io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
 
 	ImGui_ImplWin32_Init(Overlay.Hwnd);
 	ImGui_ImplDX9_Init(DirectX9.pDevice);

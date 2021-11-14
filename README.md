@@ -1,5 +1,5 @@
 # ImGuiExternal
-ImGui External Window Overlay
+ImGui for External Window Overlay
 
 ![Screenshot](https://i.imgur.com/dtII8pK.png)
 
