@@ -1,13 +1,3 @@
-#include <windows.h>
-#include <psapi.h>
-#include <tlhelp32.h>
-#include <iostream>
-#include <dwmapi.h>
-#include <d3d9.h>
-
-#pragma comment(lib, "d3d9.lib")
-#pragma comment(lib, "dwmapi.lib")
-
 DWORD GetProcessId(LPCSTR ProcessName) {
 	PROCESSENTRY32 pt;
 	HANDLE hsnap = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);

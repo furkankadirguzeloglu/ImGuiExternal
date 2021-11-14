@@ -72,22 +72,22 @@
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <LinkIncremental>true</LinkIncremental>
-    <IncludePath>$(ProjectDir)\Directories\Microsoft DirectX SDK\Include;$(IncludePath)</IncludePath>
+    <IncludePath>$(ProjectDir)\Directories\Microsoft DirectX SDK\Include;$(ProjectDir)\Directories\ImGui;$(IncludePath)</IncludePath>
     <LibraryPath>$(ProjectDir)\Directories\Microsoft DirectX SDK\Lib\x86;$(LibraryPath)</LibraryPath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <LinkIncremental>false</LinkIncremental>
-    <IncludePath>$(ProjectDir)\Directories\Microsoft DirectX SDK\Include;$(IncludePath)</IncludePath>
+    <IncludePath>$(ProjectDir)\Directories\Microsoft DirectX SDK\Include;$(ProjectDir)\Directories\ImGui;$(IncludePath)</IncludePath>
     <LibraryPath>$(ProjectDir)\Directories\Microsoft DirectX SDK\Lib\x86;$(LibraryPath)</LibraryPath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <LinkIncremental>true</LinkIncremental>
-    <IncludePath>$(ProjectDir)\Directories\Microsoft DirectX SDK\Include;$(IncludePath)</IncludePath>
+    <IncludePath>$(ProjectDir)\Directories\Microsoft DirectX SDK\Include;$(ProjectDir)\Directories\ImGui;$(IncludePath)</IncludePath>
     <LibraryPath>$(ProjectDir)\Directories\Microsoft DirectX SDK\Lib\x64;$(LibraryPath)</LibraryPath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <LinkIncremental>false</LinkIncremental>
-    <IncludePath>$(ProjectDir)\Directories\Microsoft DirectX SDK\Include;$(IncludePath)</IncludePath>
+    <IncludePath>$(ProjectDir)\Directories\Microsoft DirectX SDK\Include;$(ProjectDir)\Directories\ImGui;$(IncludePath)</IncludePath>
     <LibraryPath>$(ProjectDir)\Directories\Microsoft DirectX SDK\Lib\x64;$(LibraryPath)</LibraryPath>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
@@ -163,25 +163,25 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="ImGui\imgui.cpp" />
-    <ClCompile Include="ImGui\imgui_demo.cpp" />
-    <ClCompile Include="ImGui\imgui_draw.cpp" />
-    <ClCompile Include="ImGui\imgui_impl_dx9.cpp" />
-    <ClCompile Include="ImGui\imgui_impl_win32.cpp" />
-    <ClCompile Include="ImGui\imgui_tables.cpp" />
-    <ClCompile Include="ImGui\imgui_widgets.cpp" />
+    <ClCompile Include="Directories\ImGui\imgui.cpp" />
+    <ClCompile Include="Directories\ImGui\imgui_demo.cpp" />
+    <ClCompile Include="Directories\ImGui\imgui_draw.cpp" />
+    <ClCompile Include="Directories\ImGui\imgui_impl_dx9.cpp" />
+    <ClCompile Include="Directories\ImGui\imgui_impl_win32.cpp" />
+    <ClCompile Include="Directories\ImGui\imgui_tables.cpp" />
+    <ClCompile Include="Directories\ImGui\imgui_widgets.cpp" />
     <ClCompile Include="Source.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="Directories\ImGui\imconfig.h" />
+    <ClInclude Include="Directories\ImGui\imgui.h" />
+    <ClInclude Include="Directories\ImGui\imgui_impl_dx9.h" />
+    <ClInclude Include="Directories\ImGui\imgui_impl_win32.h" />
+    <ClInclude Include="Directories\ImGui\imgui_internal.h" />
+    <ClInclude Include="Directories\ImGui\imstb_rectpack.h" />
+    <ClInclude Include="Directories\ImGui\imstb_textedit.h" />
+    <ClInclude Include="Directories\ImGui\imstb_truetype.h" />
     <ClInclude Include="Functions.h" />
-    <ClInclude Include="ImGui\imconfig.h" />
-    <ClInclude Include="ImGui\imgui.h" />
-    <ClInclude Include="ImGui\imgui_impl_dx9.h" />
-    <ClInclude Include="ImGui\imgui_impl_win32.h" />
-    <ClInclude Include="ImGui\imgui_internal.h" />
-    <ClInclude Include="ImGui\imstb_rectpack.h" />
-    <ClInclude Include="ImGui\imstb_textedit.h" />
-    <ClInclude Include="ImGui\imstb_truetype.h" />
     <ClInclude Include="Overlay.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
