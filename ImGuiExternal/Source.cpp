@@ -1,302 +1,232 @@
-#include <windows.h>
 #include <iostream>
+#include <Windows.h>
 #include <tlhelp32.h>
-#include <psapi.h>
 #include <dwmapi.h>
-#include <d3d9.h>
-#include "Functions.h"
-#include "Overlay.h"
+#include <psapi.h>
+#include "Overlay.hpp"
+#include <DirectX/d3d9.h>
+#include <ImGui/imgui.h>
+#include <ImGui/imgui_impl_dx9.h>
+#include <ImGui/imgui_impl_win32.h>
 #pragma comment(lib, "d3d9.lib")
 #pragma comment(lib, "dwmapi.lib")
 
-LPCSTR TargetProcess = "D3D9Test.exe";
-bool ShowMenu = true;
-bool CreateConsole = true;
+bool createConsole = true;
+bool isInitialized = false;
+bool isMenuVisible = true;
 
-struct CurrentProcess {
-	DWORD ID;
-	HANDLE Handle;
-	HWND Hwnd;
-	WNDPROC WndProc;
-	int WindowWidth;
-	int WindowHeight;
-	int WindowLeft;
-	int WindowRight;
-	int WindowTop;
-	int WindowBottom;
-	LPCSTR Title;
-	LPCSTR ClassName;
-	LPCSTR Path;
-}Process;
+struct WindowInfo {
+	int Width;
+	int Height;
+	int Left;
+	int Right;
+	int Top;
+	int Bottom;
+};
 
-struct OverlayWindow {
-	WNDCLASSEX WindowClass;
-	HWND Hwnd;
-	LPCSTR Name;
-}Overlay;
+WindowInfo* windowInfo;
+WNDCLASSEX windowClass;
+HWND targetWindow;
+HWND overlayWindow;
 
-struct DirectX9Interface {
-	IDirect3D9Ex* IDirect3D9 = NULL;
-	IDirect3DDevice9Ex* pDevice = NULL;
-	D3DPRESENT_PARAMETERS pParameters = { NULL };
-	MARGINS Margin = { -1 };
-	MSG Message = { NULL };
-}DirectX9;
+std::string targetProcessName = "D3D9Test.exe";
+std::string ovarlayName = generateRandomString(generateRandomInt(30, 100));
 
-void InputHandler() {
-	for (int i = 0; i < 5; i++) {
-		ImGui::GetIO().MouseDown[i] = false;
-	}
+IDirect3DDevice9Ex* pDevice = nullptr;
+IDirect3D9Ex* pDirect = nullptr;
+D3DPRESENT_PARAMETERS gD3DPresentParams = { NULL };
 
-	int Button = -1;
-	if (GetAsyncKeyState(VK_LBUTTON)) {
-		Button = 0;
-	}
-
-	if (Button != -1) {
-		ImGui::GetIO().MouseDown[Button] = true;
-	}
+void drawItem() {
+	char fpsInfo[64];
+	RGBA textColor = { 255,255,255,255 };
+	snprintf(fpsInfo, sizeof(fpsInfo), "Overlay FPS: %.0f", ImGui::GetIO().Framerate);
+	drawStrokeText(30, 44, &textColor, fpsInfo);
 }
 
-void Draw() {
-	char FpsInfo[64];
-	sprintf(FpsInfo, "Overlay FPS: %0.f", ImGui::GetIO().Framerate);
-	RGBA White = { 255,255,255,255 };
-	DrawStrokeText(30, 44, &White, FpsInfo);
-}
+void renderImGui() {
+	if (!isInitialized) {
+		IMGUI_CHECKVERSION();
+		ImGui::CreateContext();
 
-void Render() {
-	if (GetAsyncKeyState(VK_INSERT) & 1) ShowMenu = !ShowMenu;
+		ImGui_ImplWin32_Init(overlayWindow);
+		ImGui_ImplDX9_Init(pDevice);
+		ImGui_ImplDX9_CreateDeviceObjects();
+		isInitialized = true;
+	}
+
+	if (GetAsyncKeyState(VK_INSERT) & 1) {
+		isMenuVisible = !isMenuVisible;
+		ImGui::GetIO().MouseDrawCursor = isMenuVisible;
+	}
+
 	ImGui_ImplDX9_NewFrame();
 	ImGui_ImplWin32_NewFrame();
 	ImGui::NewFrame();
-	Draw();
-	ImGui::GetIO().MouseDrawCursor = ShowMenu;
 
-	if (ShowMenu == true) {
-		InputHandler();
+	SetWindowLong(overlayWindow, GWL_EXSTYLE, isMenuVisible ? WS_EX_TOOLWINDOW : (WS_EX_LAYERED | WS_EX_TRANSPARENT | WS_EX_TOOLWINDOW));
+	UpdateWindow(overlayWindow);
+	if (isMenuVisible) {
+		inputHandler();
+		drawItem();
 		ImGui::ShowDemoWindow();
-		SetWindowLong(Overlay.Hwnd, GWL_EXSTYLE, WS_EX_TOOLWINDOW);
-		UpdateWindow(Overlay.Hwnd);
-		SetFocus(Overlay.Hwnd);
+		SetFocus(overlayWindow);
 	}
-	else {
-		SetWindowLong(Overlay.Hwnd, GWL_EXSTYLE, WS_EX_LAYERED | WS_EX_TRANSPARENT | WS_EX_TOOLWINDOW);
-		UpdateWindow(Overlay.Hwnd);
-	}
+
 	ImGui::EndFrame();
 
-	DirectX9.pDevice->Clear(0, NULL, D3DCLEAR_TARGET, D3DCOLOR_ARGB(0, 0, 0, 0), 1.0f, 0);
-	if (DirectX9.pDevice->BeginScene() >= 0) {
+	pDevice->Clear(0, NULL, D3DCLEAR_TARGET, D3DCOLOR_ARGB(0, 0, 0, 0), 1.0f, 0);
+	if (pDevice->BeginScene() >= 0) {
 		ImGui::Render();
 		ImGui_ImplDX9_RenderDrawData(ImGui::GetDrawData());
-		DirectX9.pDevice->EndScene();
+		pDevice->EndScene();
 	}
 
-	HRESULT result = DirectX9.pDevice->Present(NULL, NULL, NULL, NULL);
-	if (result == D3DERR_DEVICELOST && DirectX9.pDevice->TestCooperativeLevel() == D3DERR_DEVICENOTRESET) {
+	if (pDevice->Present(NULL, NULL, NULL, NULL) == D3DERR_DEVICELOST && pDevice->TestCooperativeLevel() == D3DERR_DEVICENOTRESET) {
 		ImGui_ImplDX9_InvalidateDeviceObjects();
-		DirectX9.pDevice->Reset(&DirectX9.pParameters);
+		pDevice->Reset(&gD3DPresentParams);
 		ImGui_ImplDX9_CreateDeviceObjects();
 	}
 }
 
-void MainLoop() {
-	static RECT OldRect;
-	ZeroMemory(&DirectX9.Message, sizeof(MSG));
-	while (DirectX9.Message.message != WM_QUIT) {
-		if (PeekMessage(&DirectX9.Message, Overlay.Hwnd, 0, 0, PM_REMOVE)) {
-			TranslateMessage(&DirectX9.Message);
-			DispatchMessage(&DirectX9.Message);
-		}
-		HWND ForegroundWindow = GetForegroundWindow();
-		if (ForegroundWindow == Process.Hwnd) {
-			HWND TempProcessHwnd = GetWindow(ForegroundWindow, GW_HWNDPREV);
-			SetWindowPos(Overlay.Hwnd, TempProcessHwnd, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE);
+void mainLoop() {
+	static MSG msg;
+	static RECT oldRect;
+	ZeroMemory(&msg, sizeof(MSG));
+	while (msg.message != WM_QUIT && GetWindow(targetWindow, GW_HWNDPREV)) {
+		if (PeekMessage(&msg, overlayWindow, 0, 0, PM_REMOVE)) {
+			TranslateMessage(&msg);
+			DispatchMessage(&msg);
 		}
 
-		RECT TempRect;
-		POINT TempPoint;
-		ZeroMemory(&TempRect, sizeof(RECT));
-		ZeroMemory(&TempPoint, sizeof(POINT));
-
-		GetClientRect(Process.Hwnd, &TempRect);
-		ClientToScreen(Process.Hwnd, &TempPoint);
-
-		TempRect.left = TempPoint.x;
-		TempRect.top = TempPoint.y;
-		ImGuiIO& io = ImGui::GetIO();
-		io.ImeWindowHandle = Process.Hwnd;
-
-		if (TempRect.left != OldRect.left || TempRect.right != OldRect.right || TempRect.top != OldRect.top || TempRect.bottom != OldRect.bottom) {
-			OldRect = TempRect;
-			Process.WindowWidth = TempRect.right;
-			Process.WindowHeight = TempRect.bottom;
-			DirectX9.pParameters.BackBufferWidth = Process.WindowWidth;
-			DirectX9.pParameters.BackBufferHeight = Process.WindowHeight;
-			SetWindowPos(Overlay.Hwnd, (HWND)0, TempPoint.x, TempPoint.y, Process.WindowWidth, Process.WindowHeight, SWP_NOREDRAW);
-			DirectX9.pDevice->Reset(&DirectX9.pParameters);
+		if (GetForegroundWindow() == targetWindow) {
+			SetWindowPos(overlayWindow, GetWindow(GetForegroundWindow(), GW_HWNDPREV), 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE);
 		}
-		Render();
+
+		RECT windowRect;
+		POINT windowPoint;
+		ZeroMemory(&windowRect, sizeof(RECT));
+		ZeroMemory(&windowPoint, sizeof(POINT));
+
+		GetClientRect(targetWindow, &windowRect);
+		ClientToScreen(targetWindow, &windowPoint);
+
+		if (memcmp(&windowPoint, &oldRect.top, sizeof(POINT)) || memcmp(&windowRect, &oldRect, sizeof(RECT))) {
+			oldRect = windowRect;
+			windowInfo->Width = windowRect.right;
+			windowInfo->Height = windowRect.bottom;
+			SetWindowPos(overlayWindow, (HWND)0, windowPoint.x, windowPoint.y, windowInfo->Width, windowInfo->Height, SWP_NOREDRAW);
+			pDevice->Reset(&gD3DPresentParams);
+		}
+
+		renderImGui();
 	}
+
 	ImGui_ImplDX9_Shutdown();
 	ImGui_ImplWin32_Shutdown();
 	ImGui::DestroyContext();
-	if (DirectX9.pDevice != NULL) {
-		DirectX9.pDevice->EndScene();
-		DirectX9.pDevice->Release();
-	}
-	if (DirectX9.IDirect3D9 != NULL) {
-		DirectX9.IDirect3D9->Release();
-	}
-	DestroyWindow(Overlay.Hwnd);
-	UnregisterClass(Overlay.WindowClass.lpszClassName, Overlay.WindowClass.hInstance);
-}
 
-bool DirectXInit() {
-	if (FAILED(Direct3DCreate9Ex(D3D_SDK_VERSION, &DirectX9.IDirect3D9))) {
-		return false;
+	clearVariable(pDevice);
+	clearVariable(pDirect);
+	if (overlayWindow) {
+		DestroyWindow(overlayWindow);
+		UnregisterClass(windowClass.lpszClassName, windowClass.hInstance);
+		overlayWindow = nullptr;
 	}
-
-	D3DPRESENT_PARAMETERS Params = { 0 };
-	Params.Windowed = TRUE;
-	Params.SwapEffect = D3DSWAPEFFECT_DISCARD;
-	Params.hDeviceWindow = Overlay.Hwnd;
-	Params.MultiSampleQuality = D3DMULTISAMPLE_NONE;
-	Params.BackBufferFormat = D3DFMT_A8R8G8B8;
-	Params.BackBufferWidth = Process.WindowWidth;
-	Params.BackBufferHeight = Process.WindowHeight;
-	Params.PresentationInterval = D3DPRESENT_INTERVAL_ONE;
-	Params.EnableAutoDepthStencil = TRUE;
-	Params.AutoDepthStencilFormat = D3DFMT_D16;
-	Params.PresentationInterval = D3DPRESENT_INTERVAL_ONE;
-	Params.FullScreen_RefreshRateInHz = D3DPRESENT_RATE_DEFAULT;
-	if (FAILED(DirectX9.IDirect3D9->CreateDeviceEx(D3DADAPTER_DEFAULT, D3DDEVTYPE_HAL, Overlay.Hwnd, D3DCREATE_HARDWARE_VERTEXPROCESSING, &Params, 0, &DirectX9.pDevice))) {
-		DirectX9.IDirect3D9->Release();
-		return false;
-	}
-
-	IMGUI_CHECKVERSION();
-	ImGui::CreateContext();
-
-	ImGui_ImplWin32_Init(Overlay.Hwnd);
-	ImGui_ImplDX9_Init(DirectX9.pDevice);
-	DirectX9.IDirect3D9->Release();
-	return true;
 }
 
 extern IMGUI_IMPL_API LRESULT ImGui_ImplWin32_WndProcHandler(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
-LRESULT CALLBACK WinProc(HWND hWnd, UINT Message, WPARAM wParam, LPARAM lParam) {
-	if (ImGui_ImplWin32_WndProcHandler(hWnd, Message, wParam, lParam))
-		return true;
-
-	switch (Message) {
+LRESULT WINAPI WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam) {
+	if (isInitialized && isMenuVisible) {
+		ImGui_ImplWin32_WndProcHandler(hWnd, uMsg, wParam, lParam);
+		return TRUE;
+	}
+	switch (uMsg) {
 	case WM_DESTROY:
-		if (DirectX9.pDevice != NULL) {
-			DirectX9.pDevice->EndScene();
-			DirectX9.pDevice->Release();
-		}
-		if (DirectX9.IDirect3D9 != NULL) {
-			DirectX9.IDirect3D9->Release();
-		}
 		PostQuitMessage(0);
-		exit(4);
 		break;
-	case WM_SIZE:
-		if (DirectX9.pDevice != NULL && wParam != SIZE_MINIMIZED) {
-			ImGui_ImplDX9_InvalidateDeviceObjects();
-			DirectX9.pParameters.BackBufferWidth = LOWORD(lParam);
-			DirectX9.pParameters.BackBufferHeight = HIWORD(lParam);
-			HRESULT hr = DirectX9.pDevice->Reset(&DirectX9.pParameters);
-			if (hr == D3DERR_INVALIDCALL)
-				IM_ASSERT(0);
-			ImGui_ImplDX9_CreateDeviceObjects();
-		}
-		break;
-	default:
-		return DefWindowProc(hWnd, Message, wParam, lParam);
+	case WM_CLOSE:
+		TerminateProcess(GetCurrentProcess(), 0);
 		break;
 	}
-	return 0;
+	return DefWindowProc(hWnd, uMsg, wParam, lParam);
 }
 
-void SetupWindow() {
-	Overlay.WindowClass = {
-		sizeof(WNDCLASSEX), 0, WinProc, 0, 0, nullptr, LoadIcon(nullptr, IDI_APPLICATION), LoadCursor(nullptr, IDC_ARROW), nullptr, nullptr, Overlay.Name, LoadIcon(nullptr, IDI_APPLICATION)
-	};
-
-	RegisterClassEx(&Overlay.WindowClass);
-	if (Process.Hwnd) {
-		static RECT TempRect = { NULL };
-		static POINT TempPoint;
-		GetClientRect(Process.Hwnd, &TempRect);
-		ClientToScreen(Process.Hwnd, &TempPoint);
-		TempRect.left = TempPoint.x;
-		TempRect.top = TempPoint.y;
-		Process.WindowWidth = TempRect.right;
-		Process.WindowHeight = TempRect.bottom;
-	}
-
-	Overlay.Hwnd = CreateWindowEx(NULL, Overlay.Name, Overlay.Name, WS_POPUP | WS_VISIBLE, Process.WindowLeft, Process.WindowTop, Process.WindowWidth, Process.WindowHeight, NULL, NULL, 0, NULL);
-	DwmExtendFrameIntoClientArea(Overlay.Hwnd, &DirectX9.Margin);
-	SetWindowLong(Overlay.Hwnd, GWL_EXSTYLE, WS_EX_LAYERED | WS_EX_TRANSPARENT | WS_EX_TOOLWINDOW);
-	ShowWindow(Overlay.Hwnd, SW_SHOW);
-	UpdateWindow(Overlay.Hwnd);
-}
-
-DWORD WINAPI ProcessCheck(LPVOID lpParameter) {
-	while (true) {
-		if (Process.Hwnd != NULL) {
-			if (GetProcessId(TargetProcess) == 0) {
-				exit(0);
-			}
-		}
+void inputHandler() {
+	ImGuiIO& io = ImGui::GetIO();
+	io.MouseDown[0] = (GetAsyncKeyState(VK_LBUTTON) & 0x8000) != 0;
+	for (int i = 1; i < 5; i++) {
+		io.MouseDown[i] = false;
 	}
 }
 
-int main() {
-	if (CreateConsole == false)
+bool createOverlay() {	
+	windowClass = { sizeof(WNDCLASSEX), NULL, WndProc, NULL, NULL, NULL, NULL, NULL, NULL, NULL, ovarlayName.c_str(), NULL };
+	RegisterClassEx(&windowClass);
+
+	RECT windowRect;
+	POINT windowPoint;
+	ZeroMemory(&windowRect, sizeof(RECT));
+	ZeroMemory(&windowPoint, sizeof(POINT));
+
+	GetClientRect(targetWindow, &windowRect);
+	ClientToScreen(targetWindow, &windowPoint);
+
+	MARGINS margins = { -1 };
+	windowInfo->Width = windowRect.right;
+	windowInfo->Height = windowRect.bottom;
+
+	overlayWindow = CreateWindowEx(NULL, ovarlayName.c_str(), ovarlayName.c_str(), WS_POPUP | WS_VISIBLE, windowInfo->Left, windowInfo->Top, windowInfo->Width, windowInfo->Height, NULL, NULL, 0, NULL);
+	DwmExtendFrameIntoClientArea(overlayWindow, &margins);
+	SetWindowLong(overlayWindow, GWL_EXSTYLE, WS_EX_LAYERED | WS_EX_TRANSPARENT | WS_EX_TOOLWINDOW);
+	ShowWindow(overlayWindow, SW_SHOW);
+	UpdateWindow(overlayWindow);
+	return TRUE;
+}
+
+bool createDirectX() {
+	if (FAILED(Direct3DCreate9Ex(D3D_SDK_VERSION, &pDirect))) {
+		return FALSE;
+	}
+
+	ZeroMemory(&gD3DPresentParams, sizeof(gD3DPresentParams));
+	gD3DPresentParams.Windowed = TRUE;
+	gD3DPresentParams.SwapEffect = D3DSWAPEFFECT_DISCARD;
+	gD3DPresentParams.BackBufferFormat = D3DFMT_UNKNOWN;
+	gD3DPresentParams.PresentationInterval = D3DPRESENT_INTERVAL_IMMEDIATE;
+	gD3DPresentParams.BackBufferFormat = D3DFMT_A8R8G8B8;
+	gD3DPresentParams.PresentationInterval = D3DPRESENT_INTERVAL_ONE; //VSync (Vertical Synchronization)
+
+	if (pDirect->CreateDeviceEx(D3DADAPTER_DEFAULT, D3DDEVTYPE_HAL, overlayWindow, D3DCREATE_HARDWARE_VERTEXPROCESSING, &gD3DPresentParams, 0, &pDevice) != D3D_OK) {
+		return FALSE;
+	}
+	return TRUE;
+}
+
+int main(int argc, char* argv[]) {
+	if (createConsole == false) {
 		ShowWindow(GetConsoleWindow(), SW_HIDE);
+	}	
 
+	windowInfo = new WindowInfo();
 	bool WindowFocus = false;
 	while (WindowFocus == false) {
 		DWORD ForegroundWindowProcessID;
 		GetWindowThreadProcessId(GetForegroundWindow(), &ForegroundWindowProcessID);
-		if (GetProcessId(TargetProcess) == ForegroundWindowProcessID) {
-			Process.ID = GetCurrentProcessId();
-			Process.Handle = GetCurrentProcess();
-			Process.Hwnd = GetForegroundWindow();
-
-			RECT TempRect;
-			GetWindowRect(Process.Hwnd, &TempRect);
-			Process.WindowWidth = TempRect.right - TempRect.left;
-			Process.WindowHeight = TempRect.bottom - TempRect.top;
-			Process.WindowLeft = TempRect.left;
-			Process.WindowRight = TempRect.right;
-			Process.WindowTop = TempRect.top;
-			Process.WindowBottom = TempRect.bottom;
-
-			char TempTitle[MAX_PATH];
-			GetWindowText(Process.Hwnd, TempTitle, sizeof(TempTitle));
-			Process.Title = TempTitle;
-
-			char TempClassName[MAX_PATH];
-			GetClassName(Process.Hwnd, TempClassName, sizeof(TempClassName));
-			Process.ClassName = TempClassName;
-
-			char TempPath[MAX_PATH];
-			GetModuleFileNameEx(Process.Handle, NULL, TempPath, sizeof(TempPath));
-			Process.Path = TempPath;
-
+		if (getProcessID(targetProcessName) == ForegroundWindowProcessID) {
+			targetWindow = GetForegroundWindow();
+			RECT windowRect;
+			GetWindowRect(targetWindow, &windowRect);
+			windowInfo->Width = windowRect.right - windowRect.left;
+			windowInfo->Height = windowRect.bottom - windowRect.top;
+			windowInfo->Left = windowRect.left;
+			windowInfo->Right = windowRect.right;
+			windowInfo->Top = windowRect.top;
+			windowInfo->Bottom = windowRect.bottom;
 			WindowFocus = true;
 		}
 	}
 
-	Overlay.Name = RandomString(10).c_str();
-	SetupWindow();
-	DirectXInit();
-	CreateThread(0, 0, ProcessCheck, 0, 0, 0);
-	while (TRUE) {
-		MainLoop();
-	}
+	createOverlay();
+	createDirectX();
+	mainLoop();
 }
