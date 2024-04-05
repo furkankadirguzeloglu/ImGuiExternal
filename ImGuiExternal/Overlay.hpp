@@ -109,7 +109,7 @@ void drawLine(int x1, int y1, int x2, int y2, RGBA* color, int thickness) {
 	ImGui::GetForegroundDrawList()->AddLine(ImVec2(x1, y1), ImVec2(x2, y2), ImGui::ColorConvertFloat4ToU32(ImVec4(color->R / 255.0, color->G / 255.0, color->B / 255.0, color->A / 255.0)), thickness);
 }
 
-void DrawCornerBox(int x, int y, int w, int h, int borderPx, RGBA* color) {
+void drawCornerBox(int x, int y, int w, int h, int borderPx, RGBA* color) {
 	drawFilledRect(x + borderPx, y, w / 3, borderPx, color);
 	drawFilledRect(x + w - w / 3 + borderPx, y, w / 3, borderPx, color);
 	drawFilledRect(x, y, borderPx, h / 3, color);
