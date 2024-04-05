@@ -93,7 +93,7 @@ void mainLoop() {
 	static RECT oldRect;
 	ZeroMemory(&msg, sizeof(MSG));
 	while (msg.message != WM_QUIT && GetWindow(targetWindow, GW_HWNDPREV)) {
-		if (PeekMessage(&msg, overlayWindow, 0, 0, PM_REMOVE)) {
+		if (PeekMessage(&msg, NULL, 0, 0, PM_REMOVE)) {
 			TranslateMessage(&msg);
 			DispatchMessage(&msg);
 		}
@@ -175,7 +175,7 @@ bool createOverlay() {
 	windowInfo->Width = windowRect.right;
 	windowInfo->Height = windowRect.bottom;
 
-	overlayWindow = CreateWindowEx(NULL, ovarlayName.c_str(), ovarlayName.c_str(), WS_POPUP | WS_VISIBLE, windowInfo->Left, windowInfo->Top, windowInfo->Width, windowInfo->Height, NULL, NULL, 0, NULL);
+	overlayWindow = CreateWindowEx(NULL, ovarlayName.c_str(), ovarlayName.c_str(), WS_POPUP | WS_VISIBLE, windowInfo->Left, windowInfo->Top, windowInfo->Width, windowInfo->Height, NULL, NULL, windowClass.hInstance, NULL);
 	DwmExtendFrameIntoClientArea(overlayWindow, &margins);
 	SetWindowLong(overlayWindow, GWL_EXSTYLE, WS_EX_LAYERED | WS_EX_TRANSPARENT | WS_EX_TOOLWINDOW);
 	ShowWindow(overlayWindow, SW_SHOW);
